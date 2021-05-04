@@ -46,6 +46,7 @@ struct proc_state
 #endif
     clock_t sim_start;
     int my_pe_num, my_job;
+	uint64_t* byte_count_by_sender;
 };
 
 /* types of events that will constitute triton requests */

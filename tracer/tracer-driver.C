@@ -500,6 +500,7 @@ static void proc_init(
     /* skew each kickoff event slightly to help avoid event ties later on */
     kickoff_time = startTime + g_tw_lookahead + tw_rand_unif(lp->rng);
     ns->end_ts = 0;
+	ns->byte_count_by_sender = new uint64_t[jobs[ns->my_job].numRanks]();
     ns->my_pe->sendSeq = new int64_t[jobs[ns->my_job].numRanks];
     ns->my_pe->recvSeq = new int64_t[jobs[ns->my_job].numRanks];
     for(int i = 0; i < jobs[ns->my_job].numRanks; i++) {
@@ -692,6 +693,24 @@ static void proc_finalize(
         printf("Job[%d]PE[%d]: FINALIZE in %f seconds.\n", ns->my_job,
           ns->my_pe_num, ns_to_s(tw_now(lp)-ns->start_ts));
 
+	char buffer[128];
+	int ranks_in_job = jobs[ns->my_job].numRanks;
+	/* sprintf(buffer, "job-%d.bytecount", ns->my_job);
+	FILE* bcf = fopen(buffer, "wx"); // Create if doesn't exist
+	if (bcf != NULL) fclose(bcf);
+
+	bcf = fopen(buffer, "r+");
+	if (bcf == NULL)
+		printf("File open failed");
+	if (fseek(bcf, ranks_in_job*sizeof(uint64_t)*ns->my_pe_num, SEEK_SET) != 0)
+		printf("Seek error!\n");
+	fwrite(ns->byte_count_by_sender, sizeof(uint64_t), ranks_in_job, bcf);
+	fclose(bcf);*/
+
+
+	//printf("Job[%d]PE[%d]: bytes: %ld, %ld, %ld ...\n", ns->my_job,
+	//		ns->my_pe_num, ns->byte_count_by_sender[0],ns->byte_count_by_sender[1],ns->byte_count_by_sender[2]);
+
 #if TRACER_OTF_TRACES
     PE_printStat(ns->my_pe);
 #endif
@@ -824,6 +843,9 @@ static void handle_recv_event(
         m->msgId.seq);
     }
 #endif
+
+	ns->byte_count_by_sender[m->msgId.pe] += m->msgId.size;
+
     MsgKey key(m->msgId.pe, m->msgId.id, m->msgId.comm, m->msgId.seq);
     KeyType::iterator it = ns->my_pe->pendingMsgs.find(key);
     assert((it == ns->my_pe->pendingMsgs.end()) || (!it->second.empty()));
@@ -921,6 +943,7 @@ static void handle_recv_rev_event(
 		proc_msg * m,
 		tw_lp * lp)
 {
+	ns->byte_count_by_sender[m->msgId.pe] -= m->msgId.size;
 #if TRACER_OTF_TRACES
     if(b->c2 || b->c4) {
       MsgKey key(m->msgId.pe, m->msgId.id, m->msgId.comm, m->msgId.seq);
@@ -3955,6 +3978,7 @@ static int send_coll_comp_rev(
     proc_msg *m)
 {
   if(isEvent) ns->my_pe->currentCollTask = m->executed.taskid;
+  return 0;
 }
 #endif
 
