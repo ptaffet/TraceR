@@ -565,7 +565,7 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     new_task.event_id = TRACER_COLL_EVT;
     Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.pe = group.members[0];
-    new_task.myEntry.msgId.size = 0;
+    new_task.myEntry.msgId.size = 8;
     new_task.myEntry.msgId.comm = communicator;
     new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_ALLREDUCE;
     new_task.myEntry.node = 0;
