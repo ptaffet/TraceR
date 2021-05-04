@@ -1115,6 +1115,20 @@ static void handle_exec_event(
       pair.taskid = ns->my_pe->loop_start_task;
       PE_addToBuffer(ns->my_pe, &pair);
       counter = 1;
+	} else if (ns->my_pe->loop_start_task == -1 &&
+			ns->my_pe->currentTask == PE_get_tasksCount(ns->my_pe) - 1 &&
+			PE_get_iter(ns->my_pe) != (jobs[ns->my_job].numIters - 1)) {
+
+		// printf("Philip loop!\n");
+		b->c1 = 1;
+		PE_mark_all_done(ns->my_pe, iter, task_id);
+		PE_inc_iter(ns->my_pe);
+		TaskPair pair;
+		pair.iter = PE_get_iter(ns->my_pe); 
+		pair.taskid = 0;
+		PE_addToBuffer(ns->my_pe, &pair);
+		counter = 1;
+
     } else {
       if(task_id != PE_get_tasksCount(ns->my_pe) - 1) {
         TaskPair pair;
@@ -1673,7 +1687,7 @@ static tw_stime exec_task(
     }
 #endif
     
-    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0)) {
+    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0 || ns->my_pe->currentTask >= PE_get_tasksCount(ns->my_pe)-1)) {
       char str[1000];
       strcpy(str, "[ %d %d : time at task %d/%d %f ]\n");
       tw_output(lp, str, ns->my_job, ns->my_pe_num, 
@@ -3892,7 +3906,7 @@ static void handle_coll_complete_event(
           tw_now(lp)/((double)TIME_MULT));
     }
 
-    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0)) {
+    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0 || ns->my_pe->currentTask >= PE_get_tasksCount(ns->my_pe)-1)) {
       char str[1000];
       strcpy(str, "[ %d %d : time at task %d %f ]\n");
       tw_output(lp, str, ns->my_job, ns->my_pe_num, 
