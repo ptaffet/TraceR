@@ -2075,7 +2075,7 @@ void handle_coll_complete_event(
           tw_now(lp)/((double)TIME_MULT));
     }
 
-    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0)) {
+    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0 || ns->my_pe->currentTask >= PE_get_tasksCount(ns->my_pe)-1)) {
       char str[1000];
       strcpy(str, "[ %d %d : time at task %d %f ]\n");
       tw_output(lp, str, ns->my_job, ns->my_pe_num, 

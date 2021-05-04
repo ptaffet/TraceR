@@ -494,6 +494,9 @@ void proc_init(
     /* skew each kickoff event slightly to help avoid event ties later on */
     kickoff_time = startTime + g_tw_lookahead + tw_rand_unif(lp->rng);
     ns->end_ts = 0;
+
+	ns->byte_count_by_sender = new uint64_t[jobs[ns->my_job].numRanks]();
+
     /* maintain message sequencing for MPI */
     ns->my_pe->sendSeq = new int64_t[jobs[ns->my_job].numRanks];
     ns->my_pe->recvSeq = new int64_t[jobs[ns->my_job].numRanks];
@@ -714,6 +717,24 @@ void proc_finalize(
         printf("Job[%d]PE[%d]: FINALIZE in %f seconds.\n", ns->my_job,
           ns->my_pe_num, ns_to_s(tw_now(lp)-ns->start_ts));
 
+	char buffer[128];
+	int ranks_in_job = jobs[ns->my_job].numRanks;
+	/* sprintf(buffer, "job-%d.bytecount", ns->my_job);
+	FILE* bcf = fopen(buffer, "wx"); // Create if doesn't exist
+	if (bcf != NULL) fclose(bcf);
+
+	bcf = fopen(buffer, "r+");
+	if (bcf == NULL)
+		printf("File open failed");
+	if (fseek(bcf, ranks_in_job*sizeof(uint64_t)*ns->my_pe_num, SEEK_SET) != 0)
+		printf("Seek error!\n");
+	fwrite(ns->byte_count_by_sender, sizeof(uint64_t), ranks_in_job, bcf);
+	fclose(bcf);*/
+
+
+	//printf("Job[%d]PE[%d]: bytes: %ld, %ld, %ld ...\n", ns->my_job,
+	//		ns->my_pe_num, ns->byte_count_by_sender[0],ns->byte_count_by_sender[1],ns->byte_count_by_sender[2]);
+
 #if TRACER_OTF_TRACES
     PE_printStat(ns->my_pe, -1);
 #endif
@@ -886,6 +907,20 @@ void handle_exec_event(
       pair.taskid = ns->my_pe->loop_start_task;
       PE_addToBuffer(ns->my_pe, &pair);
       counter = 1;
+	} else if (ns->my_pe->loop_start_task == -1 &&
+			ns->my_pe->currentTask == PE_get_tasksCount(ns->my_pe) - 1 &&
+			PE_get_iter(ns->my_pe) != (jobs[ns->my_job].numIters - 1)) {
+
+		// printf("Philip loop!\n");
+		b->c1 = 1;
+		PE_mark_all_done(ns->my_pe, iter, task_id);
+		PE_inc_iter(ns->my_pe);
+		TaskPair pair;
+		pair.iter = PE_get_iter(ns->my_pe); 
+		pair.taskid = 0;
+		PE_addToBuffer(ns->my_pe, &pair);
+		counter = 1;
+
     } else {
       if(task_id != PE_get_tasksCount(ns->my_pe) - 1) {
         TaskPair pair;

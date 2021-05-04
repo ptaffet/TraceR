@@ -51,6 +51,7 @@ struct proc_state
 #endif
     clock_t sim_start;  /* clock time when simulation starts */
     int my_pe_num, my_job;
+	uint64_t* byte_count_by_sender;
 };
 
 extern JobInf *jobs;

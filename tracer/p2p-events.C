@@ -34,6 +34,7 @@ void handle_recv_event(
         m->msgId.seq);
     }
 #endif
+	ns->byte_count_by_sender[m->msgId.pe] += m->msgId.size;
     MsgKey key(m->msgId.pe, m->msgId.id, m->msgId.comm, m->msgId.seq);
     KeyType::iterator it = ns->my_pe->pendingMsgs.find(key);
     assert((it == ns->my_pe->pendingMsgs.end()) || (!it->second.empty()));
@@ -131,6 +132,7 @@ void handle_recv_rev_event(
 		proc_msg * m,
 		tw_lp * lp)
 {
+	ns->byte_count_by_sender[m->msgId.pe] -= m->msgId.size;
 #if TRACER_OTF_TRACES
     if(b->c2 || b->c4) {
       MsgKey key(m->msgId.pe, m->msgId.id, m->msgId.comm, m->msgId.seq);
@@ -702,7 +704,7 @@ tw_stime exec_task(
     }
 #endif
     
-    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0)) {
+    if(ns->my_pe_num == 0 && (ns->my_pe->currentTask % print_frequency == 0 || ns->my_pe->currentTask >= PE_get_tasksCount(ns->my_pe)-1)) {
       char str[1000];
       strcpy(str, "[ %d %d : time at task %d/%d %f ]\n");
       tw_output(lp, str, ns->my_job, ns->my_pe_num, 

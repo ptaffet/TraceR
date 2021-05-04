@@ -60,6 +60,7 @@ struct Region {
   bool isLoopEvt;
   bool isCommunication;
   bool isExtraTracerEvt;
+  bool ignoreEvt;
 };
 
 struct Group {

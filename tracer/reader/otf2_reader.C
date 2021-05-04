@@ -151,6 +151,13 @@ callbackDefRegion(void * userData,
   else{
     new_r.isExtraTracerEvt = false;
   }
+  if( (strncmp(((AllData*)userData)->strings[name].c_str(), "MPI_Iprobe", 10) == 0) ||
+  (strncmp(((AllData*)userData)->strings[name].c_str(), "MPI_Test", 8) == 0)
+		  ) {
+    new_r.ignoreEvt = true;
+  } else {
+    new_r.ignoreEvt = false;
+  }
   if(regionRole == OTF2_REGION_ROLE_BARRIER ||
      regionRole == OTF2_REGION_ROLE_IMPLICIT_BARRIER ||
      regionRole == OTF2_REGION_ROLE_COLL_ONE2ALL ||
@@ -202,12 +209,16 @@ callbackEvtBegin( OTF2_LocationRef    location,
                   OTF2_RegionRef      region )
 {
   LocationData* ld = (LocationData*)(((AllData *)userData)->ld);
+  AllData *globalData = (AllData *)userData;
+  if (globalData->regions[region].ignoreEvt) {
+	  return OTF2_CALLBACK_SUCCESS;
+  }
+
   if(!ld->firstEnter) {
     addUserEvt(userData, time);
   } else {
     ld->firstEnter = false;
   }
-  AllData *globalData = (AllData *)userData;
   if(globalData->regions[region].isTracerPrintEvt) {
     ld->tasks.push_back(Task());
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
@@ -266,6 +277,9 @@ callbackEvtEnd( OTF2_LocationRef    location,
     new_task.event_id = region;                                                                                 
   }   
   ld->lastLogTime = time;
+  if (!globalData->regions[region].ignoreEvt) {
+	  ld->lastLogTime = time;
+  }
   return OTF2_CALLBACK_SUCCESS;
 }
 
@@ -580,7 +594,7 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
     new_task.myEntry.msgId.pe = group.members[0];
-    new_task.myEntry.msgId.size = 0;
+    new_task.myEntry.msgId.size = 8;
     new_task.myEntry.msgId.comm = communicator;
     new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_ALLREDUCE;
     new_task.myEntry.node = 0;
@@ -727,6 +741,7 @@ void readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData,
       allData );
   OTF2_EvtReaderCallbacks_Delete( event_callbacks );
   uint64_t events_read = 0;
+  // printf("Starting to read events from trace: %d\n", loc);
   OTF2_Reader_ReadAllLocalEvents( reader,
       evt_reader,
       &events_read );
