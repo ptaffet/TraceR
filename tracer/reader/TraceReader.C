@@ -349,11 +349,13 @@ void TraceReader_readOTF2Trace(PE* pe, int my_pe_num, int my_job, double *startT
   pe->msgStatus= new bool*[jobs[pe->jobNum].numIters];
   pe->allMarked= new bool[jobs[pe->jobNum].numIters];
   for(int i = 0; i < jobs[pe->jobNum].numIters; i++) {
-    pe->taskStatus[i] = new bool[pe->tasksCount];
-    pe->taskExecuted[i] = new bool[pe->tasksCount];
-    pe->msgStatus[i] = new bool[pe->tasksCount];
+    pe->taskStatus[i] = NULL;
+    pe->taskExecuted[i] = NULL;
+    pe->msgStatus[i] = NULL;
     pe->allMarked[i] = false;
   }
+  //initialize only for first iter
+  pe->goToNextIter(-1);
   pe->firstTask = 0;
   *startTime = 0;
 
@@ -363,7 +365,7 @@ void TraceReader_readOTF2Trace(PE* pe, int my_pe_num, int my_job, double *startT
   pe->currentCollRank = pe->currentCollPartner = pe->currentCollSize = -1;
   pe->currentCollMsgSize = pe->currentCollSendCount = pe->currentCollRecvCount = -1;
  
-  double user_timing, scaling_factor;
+  double user_timing = 0, scaling_factor = 1;
   bool isScaling = false, isUserTiming = false;
 
   if(eventSubs != NULL) {
@@ -398,18 +400,12 @@ void TraceReader_readOTF2Trace(PE* pe, int my_pe_num, int my_job, double *startT
       }
     }
 
-    for(int i = 0; i < jobs[pe->jobNum].numIters; i++) {
-      pe->taskStatus[i][logInd] = false;
-      pe->taskExecuted[i][logInd] = false;
-      pe->msgStatus[i][logInd] = false;
-    }
-  
     if(t->event_id == TRACER_SEND_EVT || t->event_id == TRACER_RECV_POST_EVT
        || t->event_id == TRACER_RECV_EVT || t->event_id == TRACER_RECV_COMP_EVT
        || t->event_id == TRACER_COLL_EVT)
     { 
-      if(size_replace_limit[pe->jobNum] != -1 && 
-          t->myEntry.msgId.size >= size_replace_limit[pe->jobNum]) {
+      if(size_replace_limit[pe->jobNum] > -1 && 
+          t->myEntry.msgId.size >= static_cast<unsigned int>(size_replace_limit[pe->jobNum])) {
         t->myEntry.msgId.size = size_replace_by[pe->jobNum];
       }
       if(msgSizeSub != NULL) {

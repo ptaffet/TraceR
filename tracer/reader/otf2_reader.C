@@ -49,7 +49,7 @@ callbackDefClockProperties(void * userData,
   clockProperties.ticks_per_second = timerResolution;
   clockProperties.ticksToSecond = TIME_MULT * 1.0/timerResolution;
   if(!g_tw_mynode) 
-    printf("Clock Props: %lld %lld %f\n", clockProperties.ticks_per_second,
+    printf("Clock Props: %lu %d %f\n", clockProperties.ticks_per_second,
       TIME_MULT, clockProperties.ticksToSecond);
   fflush(stdout);
   clockProperties.time_offset = globalOffset;
@@ -143,6 +143,21 @@ callbackDefRegion(void * userData,
   } else {
     new_r.isLoopEvt = false;
   }
+  if(strncmp(((AllData*)userData)->strings[name].c_str(), "TRACER_", 7) == 0 &&
+     strncmp(((AllData*)userData)->strings[name].c_str(), "TRACER_Loop", 11) != 0 &&
+     strncmp(((AllData*)userData)->strings[name].c_str(), "TRACER_WallTime", 15) != 0){
+    new_r.isExtraTracerEvt = true;
+  }
+  else{
+    new_r.isExtraTracerEvt = false;
+  }
+  if( (strncmp(((AllData*)userData)->strings[name].c_str(), "MPI_Iprobe", 10) == 0) ||
+  (strncmp(((AllData*)userData)->strings[name].c_str(), "MPI_Test", 8) == 0)
+		  ) {
+    new_r.ignoreEvt = true;
+  } else {
+    new_r.ignoreEvt = false;
+  }
   if(regionRole == OTF2_REGION_ROLE_BARRIER ||
      regionRole == OTF2_REGION_ROLE_IMPLICIT_BARRIER ||
      regionRole == OTF2_REGION_ROLE_COLL_ONE2ALL ||
@@ -172,6 +187,8 @@ addUserEvt(void*               userData,
   new_task.event_id = TRACER_USER_EVT;
 }
 
+// Function only used if NO_COMM_BUILD is defined
+#if NO_COMM_BUILD
 static void 
 addEmptyUserEvt(void* userData)
 {
@@ -181,7 +198,7 @@ addEmptyUserEvt(void* userData)
   new_task.execTime = 0;
   new_task.event_id = TRACER_USER_EVT;
 }
-
+#endif
 
 static OTF2_CallbackCode
 callbackEvtBegin( OTF2_LocationRef    location,
@@ -192,12 +209,16 @@ callbackEvtBegin( OTF2_LocationRef    location,
                   OTF2_RegionRef      region )
 {
   LocationData* ld = (LocationData*)(((AllData *)userData)->ld);
+  AllData *globalData = (AllData *)userData;
+  if (globalData->regions[region].ignoreEvt) {
+	  return OTF2_CALLBACK_SUCCESS;
+  }
+
   if(!ld->firstEnter) {
     addUserEvt(userData, time);
   } else {
     ld->firstEnter = false;
   }
-  AllData *globalData = (AllData *)userData;
   if(globalData->regions[region].isTracerPrintEvt) {
     ld->tasks.push_back(Task());
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
@@ -212,6 +233,13 @@ callbackEvtBegin( OTF2_LocationRef    location,
     new_task.loopStartEvent = true;
     new_task.event_id = TRACER_LOOP_EVT;
   }
+  if(globalData->regions[region].isExtraTracerEvt) {                                                            
+    ld->tasks.push_back(Task());                                                                                
+    Task &new_task = ld->tasks[ld->tasks.size() - 1];                                                           
+    new_task.execTime = 0;                                                                                      
+    new_task.event_id = region;                                                                                 
+    new_task.beginEvent = true;                                                                                 
+  }    
   ld->lastLogTime = time;
   return OTF2_CALLBACK_SUCCESS;
 }
@@ -227,19 +255,31 @@ callbackEvtEnd( OTF2_LocationRef    location,
   LocationData* ld = (LocationData*)(((AllData *)userData)->ld);
   AllData *globalData = (AllData *)userData;
   if(globalData->regions[region].isTracerPrintEvt) {
+    addUserEvt(userData, time);
     ld->tasks.push_back(Task());
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = region;
   }
   if(globalData->regions[region].isLoopEvt) {
+    addUserEvt(userData, time);
     ld->tasks.push_back(Task());
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.loopEvent = true;
     new_task.event_id = TRACER_LOOP_EVT;
   }
+  if(globalData->regions[region].isExtraTracerEvt) {                                                            
+    addUserEvt(userData, time);
+    ld->tasks.push_back(Task());                                                                                
+    Task &new_task = ld->tasks[ld->tasks.size() - 1];                                                           
+    new_task.execTime = 0;                                                                                      
+    new_task.event_id = region;                                                                                 
+  }   
   ld->lastLogTime = time;
+  if (!globalData->regions[region].ignoreEvt) {
+	  ld->lastLogTime = time;
+  }
   return OTF2_CALLBACK_SUCCESS;
 }
 
@@ -484,12 +524,19 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
   addEmptyUserEvt(userData);
 #else
   AllData *globalData = (AllData *)userData;
+  Group& group = globalData->groups[globalData->communicators[communicator]];
+
+  // Return without processing for MPI_COMM_SELF groups
+  if( OTF2_GROUP_TYPE_COMM_SELF == group.type ) {
+      ld->lastLogTime = time;
+      return OTF2_CALLBACK_SUCCESS;
+  }
+
   if(collectiveOp == OTF2_COLLECTIVE_OP_BCAST) {
     ld->tasks.push_back(Task());
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.pe = group.members[root];
     new_task.myEntry.msgId.size = sizeReceived;
     new_task.myEntry.msgId.comm = communicator;
@@ -502,7 +549,6 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.pe = group.members[root];
     new_task.myEntry.msgId.size = sizeSent;
     new_task.myEntry.msgId.comm = communicator;
@@ -515,7 +561,6 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.size = sizeSent/group.members.size();
     new_task.myEntry.msgId.comm = communicator;
     new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_ALLTOALL;
@@ -526,7 +571,6 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.size = sizeSent/group.members.size();
     new_task.myEntry.msgId.comm = communicator;
     new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_ALLTOALLV;
@@ -537,7 +581,6 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.pe = group.members[0];
     new_task.myEntry.msgId.size = sizeSent/group.members.size();
     new_task.myEntry.msgId.comm = communicator;
@@ -550,9 +593,8 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.pe = group.members[0];
-    new_task.myEntry.msgId.size = 0;
+    new_task.myEntry.msgId.size = 8;
     new_task.myEntry.msgId.comm = communicator;
     new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_ALLREDUCE;
     new_task.myEntry.node = 0;
@@ -564,10 +606,21 @@ callbackCollectiveEnd(OTF2_LocationRef locationID,
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
     new_task.execTime = 0;
     new_task.event_id = TRACER_COLL_EVT;
-    Group& group = globalData->groups[globalData->communicators[communicator]];
     new_task.myEntry.msgId.size = sizeReceived/group.members.size();
     new_task.myEntry.msgId.comm = communicator;
     new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_ALLGATHER;
+    new_task.myEntry.thread = 0;
+    new_task.isNonBlocking = false;
+  } else if(collectiveOp == OTF2_COLLECTIVE_OP_SCATTER) {
+    ld->tasks.push_back(Task());
+    Task &new_task = ld->tasks[ld->tasks.size() - 1];
+    new_task.execTime = 0;
+    new_task.event_id = TRACER_COLL_EVT;
+    new_task.myEntry.msgId.pe = group.members[root];
+    new_task.myEntry.msgId.size = sizeReceived;
+    new_task.myEntry.msgId.comm = communicator;
+    new_task.myEntry.msgId.coll_type = OTF2_COLLECTIVE_OP_SCATTER;
+    new_task.myEntry.node = root;
     new_task.myEntry.thread = 0;
     new_task.isNonBlocking = false;
   } 
@@ -688,6 +741,7 @@ void readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData,
       allData );
   OTF2_EvtReaderCallbacks_Delete( event_callbacks );
   uint64_t events_read = 0;
+  // printf("Starting to read events from trace: %d\n", loc);
   OTF2_Reader_ReadAllLocalEvents( reader,
       evt_reader,
       &events_read );

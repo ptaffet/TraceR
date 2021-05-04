@@ -38,7 +38,6 @@ int MsgEntry_getThread(MsgEntry* m);
 
 //PE
 typedef struct PE PE;
-PE* newPE();
 void PE_set_busy(PE* p, bool b);
 bool PE_is_busy(PE* p);
 bool PE_noUnsatDep(PE* p, int, int tInd);
@@ -82,7 +81,7 @@ int PE_findTaskFromMsg(PE* p, MsgID* msgId);
 void PE_invertMsgPe(PE* p, int, int tInd);
 int PE_get_tasksCount(PE* p);
 int PE_get_totalTasksCount(PE* p);
-void PE_printStat(PE* p);
+void PE_printStat(PE* p, int iter);
 int PE_get_numWorkThreads(PE* p);
 
 #if TRACER_BIGSIM_TRACES
