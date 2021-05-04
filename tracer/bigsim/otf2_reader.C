@@ -143,6 +143,13 @@ callbackDefRegion(void * userData,
   } else {
     new_r.isLoopEvt = false;
   }
+  if( (strncmp(((AllData*)userData)->strings[name].c_str(), "MPI_Iprobe", 10) == 0) ||
+  (strncmp(((AllData*)userData)->strings[name].c_str(), "MPI_Test", 8) == 0)
+		  ) {
+    new_r.ignoreEvt = true;
+  } else {
+    new_r.ignoreEvt = false;
+  }
   if(regionRole == OTF2_REGION_ROLE_BARRIER ||
      regionRole == OTF2_REGION_ROLE_IMPLICIT_BARRIER ||
      regionRole == OTF2_REGION_ROLE_COLL_ONE2ALL ||
@@ -192,12 +199,16 @@ callbackEvtBegin( OTF2_LocationRef    location,
                   OTF2_RegionRef      region )
 {
   LocationData* ld = (LocationData*)(((AllData *)userData)->ld);
+  AllData *globalData = (AllData *)userData;
+  if (globalData->regions[region].ignoreEvt) {
+	  return OTF2_CALLBACK_SUCCESS;
+  }
+
   if(!ld->firstEnter) {
     addUserEvt(userData, time);
   } else {
     ld->firstEnter = false;
   }
-  AllData *globalData = (AllData *)userData;
   if(globalData->regions[region].isTracerPrintEvt) {
     ld->tasks.push_back(Task());
     Task &new_task = ld->tasks[ld->tasks.size() - 1];
@@ -239,7 +250,9 @@ callbackEvtEnd( OTF2_LocationRef    location,
     new_task.loopEvent = true;
     new_task.event_id = TRACER_LOOP_EVT;
   }
-  ld->lastLogTime = time;
+  if (!globalData->regions[region].ignoreEvt) {
+	  ld->lastLogTime = time;
+  }
   return OTF2_CALLBACK_SUCCESS;
 }
 
