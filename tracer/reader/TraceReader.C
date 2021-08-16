@@ -336,10 +336,8 @@ void TraceReader::setTaskFromLog(Task *t, BgTimeLog* bglog, int taskPE,
 void TraceReader_readOTF2Trace(PE* pe, int my_pe_num, int my_job, double *startTime) {
   pe->myNum = my_pe_num;
   pe->jobNum = my_job;
-  LocationData *ld = new LocationData;
-  
-  readLocationTasks(my_job, jobs[my_job].reader, jobs[my_job].allData,
-      my_pe_num, ld);
+  LocationData *ld = readLocationTasks(my_job, jobs[my_job].reader, jobs[my_job].allData,
+      my_pe_num);
 
   pe->myTasks = &(ld->tasks[0]);
   pe->tasksCount = ld->tasks.size();

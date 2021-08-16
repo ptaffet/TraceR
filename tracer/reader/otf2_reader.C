@@ -18,6 +18,9 @@
 #include "otf2_reader.h"
 #include "CWrapper.h"
 #include <cassert>
+#include <map>
+#include <tuple>
+
 #define VERBOSE_L1 1
 #define VERBOSE_L2 0
 #define VERBOSE_L3 0
@@ -690,9 +693,21 @@ OTF2_Reader * readGlobalDefinitions(int jobID, char* tracefileName, AllData *all
   return reader;
 }
 
-void readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData, 
-    uint32_t loc, LocationData* ld)
+std::map<std::tuple<uint64_t, uint32_t>, LocationData*> cache;
+LocationData* readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData, 
+    uint32_t loc)
 {
+	uint64_t traceid;
+	OTF2_Reader_GetTraceId(reader, &traceid);
+  std::map<std::tuple<uint64_t, uint32_t>, LocationData*>::iterator inmap = cache.find(std::make_pair(traceid, loc));
+  if (inmap != cache.end()) {
+    allData->ld = inmap->second;
+    return inmap->second;
+  }
+
+	LocationData* ld = new LocationData;
+  cache[std::make_pair(traceid, loc)] = ld;
+
   std::vector<uint64_t>& locations = allData->locations;
   if(jobs[jobID].localDefs) {
     OTF2_DefReader* def_reader =
@@ -741,7 +756,7 @@ void readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData,
       allData );
   OTF2_EvtReaderCallbacks_Delete( event_callbacks );
   uint64_t events_read = 0;
-  // printf("Starting to read events from trace: %d\n", loc);
+  printf("Starting to read events from trace: %d\n", loc);
   OTF2_Reader_ReadAllLocalEvents( reader,
       evt_reader,
       &events_read );
@@ -752,6 +767,7 @@ void readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData,
   }
 #endif
   OTF2_Reader_CloseEvtReader( reader, evt_reader );
+  return ld;
 }
 
 void closeReader(OTF2_Reader *reader) {
