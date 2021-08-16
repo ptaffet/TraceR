@@ -26,6 +26,7 @@
 #include <time.h>
 #include <signal.h>
 #include <algorithm>
+#include <numeric>
 
 extern "C" {
 #include "codes/model-net.h"
@@ -692,9 +693,9 @@ void proc_commit_event(
   {
     case EXEC_COMPLETE:
       if(b->c1) {
-        delete [] ns->my_pe->taskStatus[iter];
-        delete [] ns->my_pe->taskExecuted[iter];
-        delete [] ns->my_pe->msgStatus[iter];
+        ns->my_pe->taskStatus[iter].resize(0);
+        ns->my_pe->taskExecuted[iter].resize(0);
+        ns->my_pe->msgStatus[iter].resize(0);
       }
       break;
     default:
@@ -858,6 +859,9 @@ void handle_exec_event(
     //For exec complete event msgId contains the task_id for convenience
     int task_id = m->msgId.id;
     int iter = m->iteration;
+	if (task_id == ns->my_pe->currentTask) {
+		bool td = PE_get_taskDone(ns->my_pe, iter, task_id);
+	}
     if(task_id != ns->my_pe->currentTask || 
        PE_get_taskDone(ns->my_pe, iter, task_id)) {
       b->c2 = 1;

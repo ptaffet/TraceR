@@ -117,14 +117,14 @@ void TraceReader::readTrace(int* tot, int* totn, int* emPes, int* nwth, PE* pe,
   pe->jobNum = jobnum;
   pe->myEmPE = (penum/numWth)%numEmPes;
   pe->myTasks= new Task[tlinerec.length()];
-  pe->taskStatus= new bool*[jobs[jobnum].numIters];
-  pe->taskExecuted= new bool*[jobs[jobnum].numIters];
-  pe->msgStatus= new bool*[jobs[jobnum].numIters];
+  pe->taskStatus.resize(jobs[pe->jobNum].numIters);
+  pe->taskExecuted.resize(jobs[pe->jobNum].numIters);
+  pe->msgStatus.resize(jobs[pe->jobNum].numIters);
   pe->allMarked= new bool[jobs[jobnum].numIters];
   for(int i = 0; i < jobs[jobnum].numIters; i++) {
-    pe->taskStatus[i] = new bool[tlinerec.length()];
-    pe->taskExecuted[i] = new bool[tlinerec.length()];
-    pe->msgStatus[i] = new bool[tlinerec.length()];
+    pe->taskStatus[i].resize(tlinerec.length());
+    pe->taskExecuted[i].resize(tlinerec.length());
+    pe->msgStatus[i].resize(tlinerec.length());
     pe->allMarked[i] = false;
   }
   pe->tasksCount = tlinerec.length();
@@ -344,14 +344,11 @@ void TraceReader_readOTF2Trace(PE* pe, int my_pe_num, int my_job, double *startT
   pe->myTasks = &(ld->tasks[0]);
   pe->tasksCount = ld->tasks.size();
   pe->totalTasksCount = pe->tasksCount;
-  pe->taskStatus= new bool*[jobs[pe->jobNum].numIters];
-  pe->taskExecuted= new bool*[jobs[pe->jobNum].numIters];
-  pe->msgStatus= new bool*[jobs[pe->jobNum].numIters];
+  pe->taskStatus.resize(jobs[pe->jobNum].numIters);
+  pe->taskExecuted.resize(jobs[pe->jobNum].numIters);
+  pe->msgStatus.resize(jobs[pe->jobNum].numIters);
   pe->allMarked= new bool[jobs[pe->jobNum].numIters];
   for(int i = 0; i < jobs[pe->jobNum].numIters; i++) {
-    pe->taskStatus[i] = NULL;
-    pe->taskExecuted[i] = NULL;
-    pe->msgStatus[i] = NULL;
     pe->allMarked[i] = false;
   }
   //initialize only for first iter
