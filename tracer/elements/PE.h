@@ -37,9 +37,11 @@ class MsgKey {
   bool operator< (const MsgKey &rhs) const {
     if(rank != rhs.rank) return rank < rhs.rank;
     else if(tag != rhs.tag) return tag < rhs.tag;
-    else return comm < rhs.comm;
-    //else if(comm != rhs.comm) return comm < rhs.comm;
-    //else return seq < rhs.seq;
+    //else return comm < rhs.comm;
+    else if(comm != rhs.comm) return comm < rhs.comm;
+	if (seq == rhs.seq) return false;
+	printf("DEBUG: Got down to seq in comparison. %ld vs %ld\n", seq, rhs.seq);
+    return seq < rhs.seq;
   }
   ~MsgKey() { }
 };
