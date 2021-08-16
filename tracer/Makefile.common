@@ -28,12 +28,11 @@ endif
 SEQ_CXX = ${CXX}
 
 # ROSS install directory
-ROSS_DIR = ${HOME}/spack/opt/spack/linux-rhel7-x86_64/gcc-4.9.3/ross-7.0.0
-
+ROSS_DIR = ${HOME}/CODES/ROSS/install/
 # CODES install directory
-CODES_DIR  = ${HOME}/spack/opt/spack/linux-rhel7-x86_64/gcc-4.9.3/codes-1.0.0
-CODES_LIBS = -L${CODES_DIR}/lib -Wl,-rpath,${CODES_DIR}/lib
-CODES_LIBS += -L${ROSS_DIR}/lib -Wl,-rpath,${ROSS_DIR}/lib
+CODES_DIR = ${HOME}/CODES/codes-0.6.0/install
+CODES_LIBS = -L${CODES_DIR}/lib -Wl,-rpath=${CODES_DIR}/lib
+CODES_LIBS += -L${ROSS_DIR}/lib -Wl,-rpath=${ROSS_DIR}/lib
 CODES_LIBS += -lcodes -lROSS -lm
 
 CODES_CXXFLAGS = -I${CODES_DIR}/include -I${ROSS_DIR}/include
@@ -44,12 +43,15 @@ CODES_CXXFLAGS = -I${CODES_DIR}/include -I${ROSS_DIR}/include
 # CHARMPATH = ${HOME}/spack/opt/spack/linux-rhel7-x86_64/gcc-4.9.3/charmpp-6.8.2
 
 # Use OTF2 traces
+#Enable one of the following:
+#SELECT_TRACE = -DTRACER_BIGSIM_TRACES=1
 SELECT_TRACE = -DTRACER_OTF_TRACES=1
 
 LDFLAGS  = -g
 CXXFLAGS = -O2 -g ${ARCH_FLAGS} # -DNO_COMM_BUILD=1
 CXXFLAGS += -Ibigsim -I.
 CXXFLAGS += ${CODES_CXXFLAGS} ${SELECT_TRACE}
+CXXFLAGS += -std=c++11
 
 ifeq (${SELECT_TRACE},-DTRACER_BIGSIM_TRACES=1)
 CHARM_LIBS = -L${CHARMPATH}/lib
