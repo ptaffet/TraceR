@@ -89,8 +89,11 @@ struct AllData {
 OTF2_Reader * readGlobalDefinitions(int jobID, char* tracefileName, 
   AllData *allData);
 
-void readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData, 
-  uint32_t loc, LocationData* ld);
+// Returns a potentially-new() allocated pointer, but there's no way for the calling 
+// code to know if it should free it. It's leaked right now anyways, since it lasts until termination,
+// so oh well.
+LocationData* readLocationTasks(int jobID, OTF2_Reader *reader, AllData *allData, 
+  uint32_t loc);
 
 void closeReader(OTF2_Reader *reader);
 #endif

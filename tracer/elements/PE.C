@@ -45,21 +45,15 @@ void PE::mark_all_done(int iter, int tInd) {
 }
 
 void PE::goToNextIter(int iter) {
-  if(taskStatus[iter + 1] != NULL) return;
+  if(!taskStatus[iter + 1].empty()) return;
   if(iter >= 0) {
     printStat(iter);
   }
   iter++;
-  taskStatus[iter] = new bool[tasksCount];
-  taskExecuted[iter] = new bool[tasksCount];
-  msgStatus[iter] = new bool[tasksCount];
+  taskStatus[iter].resize(tasksCount);
+  taskExecuted[iter].resize(tasksCount);
+  msgStatus[iter].resize(tasksCount);
   
-  for(int logInd = 0; logInd  < tasksCount; logInd++)
-  {
-    taskStatus[iter][logInd] = false;
-    taskExecuted[iter][logInd] = false;
-    msgStatus[iter][logInd] = false;
-  }
 #if TRACER_OTF_TRACES
   for(int logInd = 0; logInd < loop_start_task; logInd++) {
     taskStatus[iter][logInd] = true;
